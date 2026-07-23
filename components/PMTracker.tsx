@@ -7,7 +7,7 @@ import {
   CheckCircle2, AlertTriangle, Clock, ListFilter, 
   Download, Activity, User, CalendarDays,
   ChevronLeft, ChevronRight, Target, Hash,
-  RefreshCw, Sliders, Globe, KeyRound, Check, Laptop
+  RefreshCw, Sliders, Globe, KeyRound, Check, Laptop, Database
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { parseDate } from '../utils/dateHelpers';
@@ -37,9 +37,8 @@ export const PMTracker: React.FC<PMTrackerProps> = ({ data, onFilterChange, onSw
   const [searchTerm, setSearchTerm] = useState('');
   const [viewMode, setViewMode] = useState<'day' | 'week' | 'month'>('day');
 
-  // Retable integration states
-  // Retable integration states
-  const [sourceType, setSourceType] = useState<'app_data' | 'retable_api'>('retable_api');
+  // Retable & Cloudflare D1 integration states
+  const [sourceType, setSourceType] = useState<'app_data' | 'retable_api' | 'cloudflare_d1'>('cloudflare_d1');
   const [retableApiKey, setRetableApiKey] = useState(() => {
     return localStorage.getItem('retable_api_key') || 'Si6JXVXPpNJ1xS7-IfS43OJUfrzlGUqeXY-A-IhFHHCnKwMVgF5xKfAn-dBZTGKM';
   });
@@ -56,9 +55,102 @@ export const PMTracker: React.FC<PMTrackerProps> = ({ data, onFilterChange, onSw
   const [isDemo, setIsDemo] = useState(false);
   const [isSthicLive, setIsSthicLive] = useState(false);
 
+  // Cloudflare D1 states
+  const [d1Data, setD1Data] = useState<any[]>([]);
+  const [isFetchingD1, setIsFetchingD1] = useState(false);
+  const [d1Error, setD1Error] = useState<string | null>(null);
+  const [isSyncingD1, setIsSyncingD1] = useState(false);
+  const [syncMessage, setSyncMessage] = useState<string | null>(null);
+
+  const fetchD1Data = async () => {
+    setIsFetchingD1(true);
+    setD1Error(null);
+    try {
+      const res = await fetch('/api/d1/pm');
+      if (!res.ok) throw new Error(`Erreur HTTP : ${res.status}`);
+      const json = await res.json();
+      if (json.success) {
+        if (Array.isArray(json.rows)) {
+          setD1Data(json.rows);
+        } else {
+          setD1Data([]);
+        }
+      } else {
+        throw new Error(json.error || "Impossible d'obtenir les données de D1.");
+      }
+    } catch (err: any) {
+      console.error(err);
+      setD1Error(err.message || "Erreur lors de la récupération des données de Cloudflare D1.");
+    } finally {
+      setIsFetchingD1(false);
+    }
+  };
+
+  const syncToD1 = async () => {
+    if (!window.confirm("Voulez-vous synchroniser les lignes de PM affichées (Fichiers Appli ou Retable) vers la base de données Cloudflare D1 ?")) return;
+    setIsSyncingD1(true);
+    setSyncMessage(null);
+    let successCount = 0;
+    let failCount = 0;
+
+    // We sync either active Retable data or Excel data depending on what is loaded
+    const sourceRows = sourceType === 'retable_api' ? apiData : data;
+
+    if (!sourceRows || sourceRows.length === 0) {
+      alert("Aucune donnée disponible à synchroniser.");
+      setIsSyncingD1(false);
+      return;
+    }
+
+    try {
+      for (const rawRow of sourceRows) {
+        const row = normalizeRowToGlobalFileRow(rawRow);
+        const pmNum = row["PM number"] || row["PM Number"];
+        if (!pmNum) continue;
+
+        const payload = {
+          id: row["id"] || row["ID"] || 'pm-' + Math.random().toString(36).substring(2, 9),
+          site_code: row["ID"] || row["id"] || 'SITE-GEN',
+          pm_number: pmNum,
+          site_name: row["Nom du site"] || row["Nom site"] || 'Sans Nom',
+          region: row["Region"] || row["Région"] || 'Inconnue',
+          planned_date: row["PM Date"] || row["Date planifiée"] || '',
+          maintenance_type: row["Types de PM"] || row["Type de PM"] || 'Trimestrielle',
+          technician_name: row["FE names"] || row["Technicien"] || '',
+          executed_date: row["PM date execute"] || row["Date executee"] || null,
+          reprogrammed_date: row["PM date replanifiée"] || row["Date replanifiée"] || null,
+          status: row["status"] || row["State SWO"] || 'Planifié',
+          comments: row["comments"] || row["Commentaires"] || ''
+        };
+
+        const response = await fetch('/api/d1/pm', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        if (response.ok) {
+          successCount++;
+        } else {
+          failCount++;
+        }
+      }
+
+      setSyncMessage(`Synchronisation terminée : ${successCount} PM insérés/mis à jour avec succès. ${failCount > 0 ? `${failCount} échecs.` : ''}`);
+      await fetchD1Data();
+    } catch (e: any) {
+      console.error(e);
+      setSyncMessage(`Erreur de synchronisation : ${e.message}`);
+    } finally {
+      setIsSyncingD1(false);
+    }
+  };
+
   useEffect(() => {
     if (sourceType === 'retable_api' && allTables.length === 0) {
       discoverRetableTables(retableApiKey);
+    } else if (sourceType === 'cloudflare_d1') {
+      fetchD1Data();
     }
   }, [sourceType, retableApiKey]);
 
@@ -222,8 +314,11 @@ export const PMTracker: React.FC<PMTrackerProps> = ({ data, onFilterChange, onSw
     if (sourceType === 'app_data') {
       return data;
     }
+    if (sourceType === 'cloudflare_d1') {
+      return d1Data.map(normalizeRowToGlobalFileRow);
+    }
     return apiData.map(normalizeRowToGlobalFileRow);
-  }, [sourceType, data, apiData]);
+  }, [sourceType, data, apiData, d1Data]);
 
   const regions = useMemo(() => {
     const regs = new Set<string>();
@@ -459,7 +554,7 @@ export const PMTracker: React.FC<PMTrackerProps> = ({ data, onFilterChange, onSw
           </div>
           <div>
             <h4 className="text-xs font-black uppercase text-slate-800 tracking-wider">Source des Données du Module PM</h4>
-            <p className="text-[10px] text-slate-400 font-bold uppercase mt-0.5">Choisissez entre les fichiers importés et la synchronisation en temps réel</p>
+            <p className="text-[10px] text-slate-400 font-bold uppercase mt-0.5">Choisissez entre les fichiers importés, Retable, et votre base SQL Cloudflare D1</p>
           </div>
         </div>
 
@@ -484,10 +579,94 @@ export const PMTracker: React.FC<PMTrackerProps> = ({ data, onFilterChange, onSw
             }`}
           >
             <RefreshCw className={`w-4 h-4 ${isFetchingApi ? 'animate-spin' : ''}`} />
-            RETABLE API CONNECT
+            RETABLE API
+          </button>
+          <button 
+            onClick={() => setSourceType('cloudflare_d1')}
+            className={`flex-1 sm:flex-initial flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black transition-all ${
+              sourceType === 'cloudflare_d1' 
+                ? 'bg-blue-600 text-white shadow-lg' 
+                : 'text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <Database className="w-4 h-4" />
+            BASE D1 CLOUDFLARE ({d1Data.length})
           </button>
         </div>
       </div>
+
+      {sourceType === 'cloudflare_d1' && (
+        <div className="bg-slate-900 border border-slate-800 rounded-[3rem] p-6 text-white space-y-6 shadow-xl animate-in fade-in slide-in-from-top-4 duration-300">
+          <div className="bg-blue-500/10 border border-blue-500/20 text-blue-300 text-xs p-5 rounded-2xl flex items-start gap-4">
+            <div className="bg-blue-500/15 p-2.5 rounded-xl text-blue-400">
+              <Database className="w-5 h-5 animate-pulse" />
+            </div>
+            <div className="space-y-1">
+              <p className="font-black uppercase tracking-wider text-blue-200">Base SQL Cloudflare D1 Connectée</p>
+              <p className="text-slate-400 leading-relaxed font-medium">
+                L'application lit et écrit les plannings et reschedules de maintenance directement sur la base relationnelle <strong>Cloudflare D1 (SQLite)</strong>.
+              </p>
+              <div className="mt-3 p-4 bg-slate-950/50 rounded-xl border border-slate-800 space-y-2 text-slate-300 text-xs leading-relaxed">
+                <p className="font-bold text-blue-400">⚠️ Procédure d'Initialisation Obligatoire :</p>
+                <p>
+                  Si les données ne s'affichent pas ou s'il y a des erreurs, assurez-vous d'avoir exécuté le script SQL d'initialisation sur votre base de données distante. Ouvrez un terminal dans votre projet et exécutez la commande suivante :
+                </p>
+                <div className="bg-slate-950 p-3 rounded-lg border border-slate-800 font-mono text-indigo-300 text-xs select-all overflow-x-auto whitespace-nowrap">
+                  npx wrangler d1 execute sthic_pm_db --remote --file=schema.sql
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+            <div>
+              <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 bg-blue-500 text-white rounded">
+                D1 STATUS
+              </span>
+              <h3 className="text-lg font-black tracking-tight mt-1 flex items-center gap-2">
+                Base active : <code className="text-blue-400 font-mono">sthic_pm_db</code>
+              </h3>
+              <p className="text-[10px] text-slate-400 font-bold uppercase mt-1">
+                Contient actuellement {d1Data.length} lignes de planning PM enregistrées.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+              <button
+                onClick={fetchD1Data}
+                disabled={isFetchingD1}
+                className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 transition-colors rounded-xl text-xs font-black flex items-center gap-2 border border-slate-700/30 w-full md:w-auto justify-center disabled:opacity-50"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isFetchingD1 ? 'animate-spin' : ''}`} />
+                {isFetchingD1 ? 'Chargement...' : 'Actualiser'}
+              </button>
+
+              <button
+                onClick={syncToD1}
+                disabled={isSyncingD1}
+                className="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white transition-all rounded-xl text-xs font-black shadow-lg flex items-center gap-2 w-full md:w-auto justify-center disabled:opacity-50"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isSyncingD1 ? 'animate-spin' : ''}`} />
+                {isSyncingD1 ? 'Synchronisation en cours...' : 'Synchroniser vers Cloudflare D1'}
+              </button>
+            </div>
+          </div>
+
+          {syncMessage && (
+            <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-xs font-bold px-5 py-4 rounded-xl flex items-center gap-3">
+              <Check className="w-5 h-5 text-emerald-400 shrink-0" />
+              <span>{syncMessage}</span>
+            </div>
+          )}
+
+          {d1Error && (
+            <div className="bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-bold px-5 py-4 rounded-xl flex items-center gap-3">
+              <AlertTriangle className="w-5 h-5 text-rose-400 shrink-0" />
+              <span>{d1Error}</span>
+            </div>
+          )}
+        </div>
+      )}
 
       {sourceType === 'retable_api' && (
         <div className="bg-slate-900 border border-slate-800 rounded-[3rem] p-6 text-white space-y-6 shadow-xl animate-in fade-in slide-in-from-top-4 duration-300">

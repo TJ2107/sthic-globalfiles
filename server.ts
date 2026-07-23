@@ -8,6 +8,93 @@ import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+// Setup local mock D1 SQL Database JSON file to avoid API crashes in dev server
+const mockDbFile = path.join(__dirname, 'd1_mock_db.json');
+function readMockDb() {
+  if (!fs.existsSync(mockDbFile)) {
+    const initial = {
+      users: [
+        {
+          uid: 'admin-id',
+          email: 'cyber.kan587@gmail.com',
+          display_name: 'Administrateur',
+          role: 'Admin',
+          password: 'admin'
+        }
+      ],
+      pm_assignments: [
+        {
+          id: 'row-01',
+          site_code: 'SITE_DK_01',
+          pm_number: 'PM-2026-1001',
+          site_name: 'Site Dakar Plateau',
+          region: 'DAKAR',
+          planned_date: '2026-07-23',
+          maintenance_type: 'Trimestrielle',
+          technician_name: 'Ibrahima Ndiaye',
+          executed_date: '2026-07-23',
+          reprogrammed_date: '',
+          status: 'Exécuté',
+          comments: ''
+        },
+        {
+          id: 'row-02',
+          site_code: 'SITE_TH_02',
+          pm_number: 'PM-2026-1002',
+          site_name: 'Site Thiès Gare',
+          region: 'THIES',
+          planned_date: '2026-07-23',
+          maintenance_type: 'Semestrielle',
+          technician_name: 'Moustapha Diop',
+          executed_date: '',
+          reprogrammed_date: '',
+          status: 'Planifié',
+          comments: ''
+        },
+        {
+          id: 'row-03',
+          site_code: 'SITE_SL_03',
+          pm_number: 'PM-2026-1003',
+          site_name: 'Site Saint-Louis Nord',
+          region: 'SAINT-LOUIS',
+          planned_date: '2026-07-23',
+          maintenance_type: 'Annuelle',
+          technician_name: 'Amadou Sow',
+          executed_date: '',
+          reprogrammed_date: '2026-07-25',
+          status: 'Replanifié',
+          comments: ''
+        },
+        {
+          id: 'row-04',
+          site_code: 'SITE_ZG_04',
+          pm_number: 'PM-2026-1004',
+          site_name: 'Site Ziguinchor Centre',
+          region: 'ZIGUINCHOR',
+          planned_date: '2026-07-23',
+          maintenance_type: 'Mensuelle',
+          technician_name: 'Fatou Fall',
+          executed_date: '',
+          reprogrammed_date: '',
+          status: 'En retard',
+          comments: ''
+        }
+      ]
+    };
+    fs.writeFileSync(mockDbFile, JSON.stringify(initial, null, 2), 'utf-8');
+    return initial;
+  }
+  try {
+    return JSON.parse(fs.readFileSync(mockDbFile, 'utf-8'));
+  } catch {
+    return { users: [], pm_assignments: [] };
+  }
+}
+
+function writeMockDb(data: any) {
+  fs.writeFileSync(mockDbFile, JSON.stringify(data, null, 2), 'utf-8');
+}
+
 // Setup file logging to debug crashes
 const logFile = path.join(__dirname, 'server-debug.log');
 const logStream = fs.createWriteStream(logFile, { flags: 'a' });
@@ -43,7 +130,152 @@ async function startServer() {
 
   // API Routes
   app.get('/api/health', (req, res) => {
-    res.json({ status: 'ok', database: 'Firebase' });
+    res.json({ status: 'ok', database: 'Firebase/D1 Local' });
+  });
+
+  // A. GET /api/auth/users (Fetch all registered users)
+  app.get('/api/auth/users', (req, res) => {
+    try {
+      const db = readMockDb();
+      const users = db.users.map((u: any) => ({
+        uid: u.uid,
+        email: u.email,
+        displayName: u.display_name,
+        role: u.role
+      }));
+      res.json({ success: true, users });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // B. POST /api/auth/login (Verify login against database)
+  app.post('/api/auth/login', (req, res) => {
+    try {
+      const { email, password } = req.body;
+      const db = readMockDb();
+      const user = db.users.find((u: any) => u.email.toLowerCase() === email.toLowerCase());
+      if (!user) {
+        return res.status(404).json({ error: "Utilisateur non trouvé dans la base de données locale." });
+      }
+      if (user.password !== password) {
+        return res.status(401).json({ error: "Mot de passe incorrect." });
+      }
+      res.json({
+        success: true,
+        user: {
+          uid: user.uid,
+          email: user.email,
+          displayName: user.display_name,
+          role: user.role
+        }
+      });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // C. POST /api/auth/register (Create new user in database)
+  app.post('/api/auth/register', (req, res) => {
+    try {
+      const { email, password, displayName, role } = req.body;
+      const db = readMockDb();
+      const existing = db.users.find((u: any) => u.email.toLowerCase() === email.toLowerCase());
+      if (existing) {
+        return res.status(400).json({ error: "Cet email est déjà utilisé." });
+      }
+      const uid = 'user-' + Math.random().toString(36).substring(2, 11);
+      const newUser = {
+        uid,
+        email,
+        display_name: displayName,
+        role: role || 'User',
+        password
+      };
+      db.users.push(newUser);
+      writeMockDb(db);
+      res.json({
+        success: true,
+        user: {
+          uid,
+          email,
+          displayName,
+          role: role || 'User'
+        }
+      });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // D. GET /api/d1/pm (Retrieve custom assignments/overrides from D1)
+  app.get('/api/d1/pm', (req, res) => {
+    try {
+      const db = readMockDb();
+      const results = db.pm_assignments;
+      const mappedRows = results.map((row: any) => ({
+        id: row.id,
+        "ID": row.site_code || row.id,
+        "PM number": row.pm_number,
+        "Nom du site": row.site_name,
+        "Region": row.region,
+        "PM Date": row.planned_date,
+        "Types de PM": row.maintenance_type,
+        "FE names": row.technician_name,
+        "PM date execute": row.executed_date || '',
+        "PM date replanifiée": row.reprogrammed_date || '',
+        "status": row.status,
+        "comments": row.comments || ''
+      }));
+      res.json({ success: true, rows: mappedRows });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // E. POST /api/d1/pm (Create/Update custom assignments or reschedule logs in D1)
+  app.post('/api/d1/pm', (req, res) => {
+    try {
+      const { id, site_code, pm_number, site_name, region, planned_date, maintenance_type, technician_name, executed_date, reprogrammed_date, status, comments } = req.body;
+      const db = readMockDb();
+      
+      const existingIndex = db.pm_assignments.findIndex((p: any) => p.pm_number === pm_number);
+      if (existingIndex > -1) {
+        db.pm_assignments[existingIndex] = {
+          ...db.pm_assignments[existingIndex],
+          site_code: site_code || db.pm_assignments[existingIndex].site_code,
+          site_name: site_name || db.pm_assignments[existingIndex].site_name,
+          region: region || db.pm_assignments[existingIndex].region,
+          planned_date: planned_date || db.pm_assignments[existingIndex].planned_date,
+          maintenance_type: maintenance_type || db.pm_assignments[existingIndex].maintenance_type,
+          technician_name: technician_name || db.pm_assignments[existingIndex].technician_name,
+          executed_date: executed_date !== undefined ? executed_date : db.pm_assignments[existingIndex].executed_date,
+          reprogrammed_date: reprogrammed_date !== undefined ? reprogrammed_date : db.pm_assignments[existingIndex].reprogrammed_date,
+          status: status || db.pm_assignments[existingIndex].status,
+          comments: comments !== undefined ? comments : db.pm_assignments[existingIndex].comments
+        };
+      } else {
+        db.pm_assignments.push({
+          id: id || 'pm-' + Math.random().toString(36).substring(2, 9),
+          site_code,
+          pm_number,
+          site_name,
+          region,
+          planned_date,
+          maintenance_type,
+          technician_name,
+          executed_date: executed_date || '',
+          reprogrammed_date: reprogrammed_date || '',
+          status: status || 'Planifié',
+          comments: comments || ''
+        });
+      }
+      
+      writeMockDb(db);
+      res.json({ success: true, message: "Planning PM mis à jour avec succès." });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
   });
 
   app.get('/api/retable/workspaces', async (req, res) => {

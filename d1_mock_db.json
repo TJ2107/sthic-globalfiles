@@ -93,5 +93,22 @@
       "status": "Planifié",
       "comments": ""
     }
+  ],
+  "daily_raw_data": [
+    {
+      "id": "raw-8nlg7ie",
+      "site_code": "TEST01",
+      "pm_number": "PM-TEST-DAILY",
+      "site_name": "Test Site",
+      "region": "TEST",
+      "planned_date": "2026-07-23",
+      "maintenance_type": "Test",
+      "technician_name": "Tester",
+      "executed_date": "",
+      "reprogrammed_date": "",
+      "status": "Planifié",
+      "comments": "",
+      "imported_at": "2026-07-23T21:46:52.821Z"
+    }
   ]
 }

@@ -27,6 +27,23 @@ CREATE TABLE IF NOT EXISTS pm_assignments (
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
+-- 3. Table for storing daily raw data synchronized from Excel/Retable
+CREATE TABLE IF NOT EXISTS daily_raw_data (
+  id TEXT PRIMARY KEY,
+  pm_number TEXT UNIQUE,
+  site_code TEXT,
+  site_name TEXT,
+  region TEXT,
+  planned_date TEXT,
+  maintenance_type TEXT,
+  technician_name TEXT,
+  executed_date TEXT,
+  reprogrammed_date TEXT,
+  status TEXT,
+  comments TEXT,
+  imported_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Seed initial Admin User
 INSERT OR IGNORE INTO users (uid, email, display_name, role, password)
 VALUES (

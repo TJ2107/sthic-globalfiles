@@ -455,6 +455,67 @@ export const onRequest = async (context: any) => {
       }
     }
 
+    // F. POST /api/d1/sync-daily (Create/Update daily raw data in D1)
+    if (pathname === '/api/d1/sync-daily' && method === 'POST') {
+      try {
+        const body = await request.json();
+        const { id, site_code, pm_number, site_name, region, planned_date, maintenance_type, technician_name, executed_date, reprogrammed_date, status, comments } = body;
+        if (env.DB) {
+          await env.DB.prepare(`
+            INSERT INTO daily_raw_data (id, site_code, pm_number, site_name, region, planned_date, maintenance_type, technician_name, executed_date, reprogrammed_date, status, comments, imported_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            ON CONFLICT(pm_number) DO UPDATE SET
+              site_code=excluded.site_code,
+              site_name=excluded.site_name,
+              region=excluded.region,
+              planned_date=excluded.planned_date,
+              maintenance_type=excluded.maintenance_type,
+              technician_name=excluded.technician_name,
+              executed_date=excluded.executed_date,
+              reprogrammed_date=excluded.reprogrammed_date,
+              status=excluded.status,
+              comments=excluded.comments,
+              imported_at=CURRENT_TIMESTAMP
+          `).bind(
+            id, site_code, pm_number, site_name, region, planned_date, maintenance_type, technician_name, executed_date || null, reprogrammed_date || null, status, comments || null
+          ).run();
+          return new Response(JSON.stringify({ success: true, message: "Raw data daily synced in D1." }), { headers: { 'Content-Type': 'application/json' } });
+        } else {
+          return new Response(JSON.stringify({ error: "Base D1 non connectée." }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+        }
+      } catch (e: any) {
+        return new Response(JSON.stringify({ error: e.message }), { status: 500, headers: { 'Content-Type': 'application/json' } });
+      }
+    }
+
+    // G. GET /api/d1/sync-daily (Retrieve daily raw data from D1)
+    if (pathname === '/api/d1/sync-daily' && method === 'GET') {
+      if (env.DB) {
+        try {
+          const { results } = await env.DB.prepare("SELECT * FROM daily_raw_data ORDER BY imported_at DESC").all();
+          const mappedRows = results.map((row: any) => ({
+            id: row.id,
+            "ID": row.site_code || row.id,
+            "PM number": row.pm_number,
+            "Nom du site": row.site_name,
+            "Region": row.region,
+            "PM Date": row.planned_date,
+            "Types de PM": row.maintenance_type,
+            "FE names": row.technician_name,
+            "PM date execute": row.executed_date || '',
+            "PM date replanifiée": row.reprogrammed_date || '',
+            "status": row.status,
+            "comments": row.comments || ''
+          }));
+          return new Response(JSON.stringify({ success: true, rows: mappedRows }), { headers: { 'Content-Type': 'application/json' } });
+        } catch (e: any) {
+          return new Response(JSON.stringify({ error: e.message }), { status: 500, headers: { 'Content-Type': 'application/json' } });
+        }
+      } else {
+        return new Response(JSON.stringify({ success: true, rows: [] }), { headers: { 'Content-Type': 'application/json' } });
+      }
+    }
+
     return new Response(JSON.stringify({ error: 'Not Found' }), { status: 404, headers: { 'Content-Type': 'application/json' } });
   };
 

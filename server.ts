@@ -291,6 +291,82 @@ async function startServer() {
     }
   });
 
+  // F. POST /api/d1/sync-daily (Create/Update daily raw data)
+  app.post('/api/d1/sync-daily', (req, res) => {
+    try {
+      const { id, site_code, pm_number, site_name, region, planned_date, maintenance_type, technician_name, executed_date, reprogrammed_date, status, comments } = req.body;
+      const db = readMockDb();
+      
+      if (!db.daily_raw_data) {
+        db.daily_raw_data = [];
+      }
+      
+      const existingIndex = db.daily_raw_data.findIndex((p: any) => p.pm_number === pm_number);
+      if (existingIndex > -1) {
+        db.daily_raw_data[existingIndex] = {
+          ...db.daily_raw_data[existingIndex],
+          site_code: site_code || db.daily_raw_data[existingIndex].site_code,
+          site_name: site_name || db.daily_raw_data[existingIndex].site_name,
+          region: region || db.daily_raw_data[existingIndex].region,
+          planned_date: planned_date || db.daily_raw_data[existingIndex].planned_date,
+          maintenance_type: maintenance_type || db.daily_raw_data[existingIndex].maintenance_type,
+          technician_name: technician_name || db.daily_raw_data[existingIndex].technician_name,
+          executed_date: executed_date !== undefined ? executed_date : db.daily_raw_data[existingIndex].executed_date,
+          reprogrammed_date: reprogrammed_date !== undefined ? reprogrammed_date : db.daily_raw_data[existingIndex].reprogrammed_date,
+          status: status || db.daily_raw_data[existingIndex].status,
+          comments: comments !== undefined ? comments : db.daily_raw_data[existingIndex].comments,
+          imported_at: new Date().toISOString()
+        };
+      } else {
+        db.daily_raw_data.push({
+          id: id || 'raw-' + Math.random().toString(36).substring(2, 9),
+          site_code,
+          pm_number,
+          site_name,
+          region,
+          planned_date,
+          maintenance_type,
+          technician_name,
+          executed_date: executed_date || '',
+          reprogrammed_date: reprogrammed_date || '',
+          status: status || 'Planifié',
+          comments: comments || '',
+          imported_at: new Date().toISOString()
+        });
+      }
+      
+      writeMockDb(db);
+      res.json({ success: true, message: "Données brutes journalières synchronisées avec succès." });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // G. GET /api/d1/sync-daily (Retrieve custom assignments/overrides from D1)
+  app.get('/api/d1/sync-daily', (req, res) => {
+    try {
+      const db = readMockDb();
+      const results = db.daily_raw_data || [];
+      const mappedRows = results.map((row: any) => ({
+        id: row.id,
+        "ID": row.site_code || row.id,
+        "PM number": row.pm_number,
+        "Nom du site": row.site_name,
+        "Region": row.region,
+        "PM Date": row.planned_date,
+        "Types de PM": row.maintenance_type,
+        "FE names": row.technician_name,
+        "PM date execute": row.executed_date || '',
+        "PM date replanifiée": row.reprogrammed_date || '',
+        "status": row.status,
+        "comments": row.comments || ''
+      }));
+      res.json({ success: true, rows: mappedRows });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
   app.get('/api/retable/workspaces', async (req, res) => {
     try {
       const apiKey = (req.headers['x-api-key'] as string) || process.env.RETABLE_API_KEY || 'Si6JXVXPpNJ1xS7-IfS43OJUfrzlGUqeXY-A-IhFHHCnKwMVgF5xKfAn-dBZTGKM';

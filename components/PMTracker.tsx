@@ -140,7 +140,13 @@ export const PMTracker: React.FC<PMTrackerProps> = ({ data, onFilterChange, onSw
           body: JSON.stringify(payload)
         });
 
-        if (response.ok) {
+        const dailyResponse = await fetch('/api/d1/sync-daily', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        if (response.ok && dailyResponse.ok) {
           successCount++;
         } else {
           failCount++;

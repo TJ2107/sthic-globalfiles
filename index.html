@@ -55,13 +55,17 @@
           originalWarn.apply(console, args);
         };
         window.addEventListener('unhandledrejection', function(event) {
-          if (event.reason && event.reason.message && event.reason.message.includes('WebSocket closed without opened')) {
+          const reasonStr = event.reason ? (event.reason.message || String(event.reason)) : '';
+          if (reasonStr.includes('WebSocket closed without opened') || reasonStr.includes('failed to connect to websocket')) {
             event.preventDefault();
+            event.stopImmediatePropagation();
           }
         });
         window.addEventListener('error', function(event) {
-          if (event.message && (event.message.includes('[vite] failed to connect to websocket') || event.message.includes('WebSocket closed without opened'))) {
+          const errMsg = event.message || '';
+          if (errMsg.includes('[vite] failed to connect to websocket') || errMsg.includes('WebSocket closed without opened')) {
             event.preventDefault();
+            event.stopImmediatePropagation();
           }
         }, true);
       })();

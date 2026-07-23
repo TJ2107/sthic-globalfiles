@@ -432,20 +432,19 @@ export const onRequest = async (context: any) => {
             INSERT INTO pm_assignments (id, site_code, pm_number, site_name, region, planned_date, maintenance_type, technician_name, executed_date, reprogrammed_date, status, comments, updated_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
             ON CONFLICT(pm_number) DO UPDATE SET
-              site_code=coalesce(?, site_code),
-              site_name=coalesce(?, site_name),
-              region=coalesce(?, region),
-              planned_date=coalesce(?, planned_date),
-              maintenance_type=coalesce(?, maintenance_type),
-              technician_name=coalesce(?, technician_name),
-              executed_date=?,
-              reprogrammed_date=?,
-              status=?,
-              comments=?,
+              site_code=coalesce(excluded.site_code, pm_assignments.site_code),
+              site_name=coalesce(excluded.site_name, pm_assignments.site_name),
+              region=coalesce(excluded.region, pm_assignments.region),
+              planned_date=coalesce(excluded.planned_date, pm_assignments.planned_date),
+              maintenance_type=coalesce(excluded.maintenance_type, pm_assignments.maintenance_type),
+              technician_name=coalesce(excluded.technician_name, pm_assignments.technician_name),
+              executed_date=excluded.executed_date,
+              reprogrammed_date=excluded.reprogrammed_date,
+              status=excluded.status,
+              comments=excluded.comments,
               updated_at=CURRENT_TIMESTAMP
           `).bind(
-            id, site_code, pm_number, site_name, region, planned_date, maintenance_type, technician_name, executed_date || null, reprogrammed_date || null, status, comments || null,
-            site_code, site_name, region, planned_date, maintenance_type, technician_name, executed_date || null, reprogrammed_date || null, status, comments || null
+            id, site_code, pm_number, site_name, region, planned_date, maintenance_type, technician_name, executed_date || null, reprogrammed_date || null, status, comments || null
           ).run();
           return new Response(JSON.stringify({ success: true, message: "Planning PM mis à jour avec succès dans Cloudflare D1." }), { headers: { 'Content-Type': 'application/json' } });
         } else {

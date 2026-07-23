@@ -94,7 +94,18 @@ export const PMTracker: React.FC<PMTrackerProps> = ({ data, onFilterChange, onSw
     let failCount = 0;
 
     // We sync either active Retable data or Excel data depending on what is loaded
-    const sourceRows = sourceType === 'retable_api' ? apiData : data;
+    // If the user is on the Cloudflare tab, we want to sync the last uploaded Excel data if available, or just prevent it.
+    let sourceRows: any[] = [];
+    if (sourceType === 'retable_api') {
+      sourceRows = apiData;
+    } else if (sourceType === 'app_data') {
+      sourceRows = data;
+    } else if (sourceType === 'cloudflare_d1') {
+      // If viewing Cloudflare D1, allow them to sync the Excel data or Retable data they might have just loaded
+      if (apiData && apiData.length > 0) sourceRows = apiData;
+      else if (data && data.length > 0) sourceRows = data;
+      else sourceRows = d1Data; // If they modified D1 data directly in the UI (not implemented yet, but good fallback)
+    }
 
     if (!sourceRows || sourceRows.length === 0) {
       alert("Aucune donnée disponible à synchroniser.");

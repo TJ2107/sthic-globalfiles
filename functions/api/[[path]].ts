@@ -25,22 +25,18 @@ export const onRequest = async (context: any) => {
       });
     }
 
-    // Extract apiKey with fallback
-    const apiKey = request.headers.get('x-api-key') || env.RETABLE_API_KEY || 'Si6JXVXPpNJ1xS7-IfS43OJUfrzlGUqeXY-A-IhFHHCnKwMVgF5xKfAn-dBZTGKM';
+    // Extract apiKey from request headers or Cloudflare environment bindings only.
+    const apiKey = request.headers.get('x-api-key') || request.headers.get('ApiKey') || env.RETABLE_API_KEY || null;
+
+    if (pathname.startsWith('/api/retable/') && !apiKey) {
+      return new Response(JSON.stringify({ error: 'Unauthorized: missing RETABLE_API_KEY' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
 
     // 2. GET /api/retable/workspaces
     if (pathname === '/api/retable/workspaces') {
-      if (apiKey === 'Si6JXVXPpNJ1xS7-IfS43OJUfrzlGUqeXY-A-IhFHHCnKwMVgF5xKfAn-dBZTGKM') {
-        return new Response(JSON.stringify({
-          isSthicLive: true,
-          data: {
-            workspaces: [
-              { id: 'ws-sthic-live', name: 'STHIC Production' }
-            ]
-          }
-        }), { headers: { 'Content-Type': 'application/json' } });
-      }
-
       try {
         const response = await fetch('https://api.retable.io/v1/public/workspaces', {
           headers: { 'ApiKey': apiKey }
@@ -65,28 +61,6 @@ export const onRequest = async (context: any) => {
     // 3. GET /api/retable/projects
     if (pathname === '/api/retable/projects') {
       const workspaceId = url.searchParams.get('workspaceId');
-
-      if (apiKey === 'Si6JXVXPpNJ1xS7-IfS43OJUfrzlGUqeXY-A-IhFHHCnKwMVgF5xKfAn-dBZTGKM' || workspaceId === 'ws-sthic-live') {
-        return new Response(JSON.stringify({
-          isSthicLive: true,
-          data: {
-            projects: [
-              { id: 'proj-sthic-live', name: 'Suivi PM & Maintenances' }
-            ]
-          }
-        }), { headers: { 'Content-Type': 'application/json' } });
-      }
-
-      if (apiKey === 'Si6JXVXPpNJ1xS7-IfS43OJUfrzlGUqeXY-A-IhFHHCnKwMVgF5xKfAn-dBZTGKM' || workspaceId === 'ws-demo-01') {
-        return new Response(JSON.stringify({
-          isDemo: true,
-          data: {
-            projects: [
-              { id: 'proj-demo-01', name: 'Projet Maintenance Télécom 2026' }
-            ]
-          }
-        }), { headers: { 'Content-Type': 'application/json' } });
-      }
 
       if (!workspaceId) {
         return new Response(JSON.stringify({ error: 'workspaceId is required' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
@@ -115,28 +89,6 @@ export const onRequest = async (context: any) => {
     if (pathname === '/api/retable/tables') {
       const projectId = url.searchParams.get('projectId');
 
-      if (apiKey === 'Si6JXVXPpNJ1xS7-IfS43OJUfrzlGUqeXY-A-IhFHHCnKwMVgF5xKfAn-dBZTGKM' || projectId === 'proj-sthic-live') {
-        return new Response(JSON.stringify({
-          isSthicLive: true,
-          data: {
-            tables: [
-              { id: 'tab-sthic-live', title: 'Planification PM (STHIC Live)' }
-            ]
-          }
-        }), { headers: { 'Content-Type': 'application/json' } });
-      }
-
-      if (apiKey === 'Si6JXVXPpNJ1xS7-IfS43OJUfrzlGUqeXY-A-IhFHHCnKwMVgF5xKfAn-dBZTGKM' || projectId === 'proj-demo-01') {
-        return new Response(JSON.stringify({
-          isDemo: true,
-          data: {
-            tables: [
-              { id: 'tab-demo-01', title: 'Suivi PM Sénégal Global' }
-            ]
-          }
-        }), { headers: { 'Content-Type': 'application/json' } });
-      }
-
       if (!projectId) {
         return new Response(JSON.stringify({ error: 'projectId is required' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
       }
@@ -164,86 +116,6 @@ export const onRequest = async (context: any) => {
     if (pathname === '/api/retable/data') {
       const retableId = url.searchParams.get('retableId');
 
-      if (apiKey === 'Si6JXVXPpNJ1xS7-IfS43OJUfrzlGUqeXY-A-IhFHHCnKwMVgF5xKfAn-dBZTGKM' || retableId === 'tab-sthic-live') {
-        try {
-          const assignmentsRes = await fetch('https://sthic-maintenances-generateurs.pages.dev/api/pm-assignments', {
-            headers: { 'x-api-key': 'Si6JXVXPpNJ1xS7-IfS43OJUfrzlGUqeXY-A-IhFHHCnKwMVgF5xKfAn-dBZTGKM' }
-          });
-          if (!assignmentsRes.ok) {
-            throw new Error(`Failed to fetch assignments: ${assignmentsRes.status}`);
-          }
-          const assignmentsJson: any = await assignmentsRes.json();
-          const assignments = assignmentsJson.assignments || [];
-
-          let sitesMap = new Map();
-          try {
-            const sitesRes = await fetch('https://sthic-maintenances-generateurs.pages.dev/api/sites', {
-              headers: { 'x-api-key': 'Si6JXVXPpNJ1xS7-IfS43OJUfrzlGUqeXY-A-IhFHHCnKwMVgF5xKfAn-dBZTGKM' }
-            });
-            if (sitesRes.ok) {
-              const sitesJson: any = await sitesRes.json();
-              const sitesList = sitesJson.sites || [];
-              sitesList.forEach((site: any) => {
-                if (site.id) {
-                  sitesMap.set(String(site.id), site.nameSite || site.idSite || '');
-                }
-              });
-            }
-          } catch (siteErr) {
-            console.error("Error fetching sites map:", siteErr);
-          }
-
-          const rows = assignments.map((asg: any) => {
-            const siteName = sitesMap.get(String(asg.siteId)) || asg.siteCode || 'Site Inconnu';
-            
-            let statusText = 'Planifié';
-            if (asg.pmState === 'Closed Complete' || asg.closedAt) {
-              statusText = 'Exécuté';
-            } else if (asg.reprogrammationDate) {
-              statusText = 'Replanifié';
-            } else {
-              const pDate = new Date(asg.plannedDate);
-              const today = new Date();
-              today.setHours(0, 0, 0, 0);
-              if (pDate < today) {
-                statusText = 'En retard';
-              }
-            }
-
-            return {
-              id: asg.id,
-              "ID": asg.siteCode || asg.siteId,
-              "PM number": asg.pmNumber,
-              "Nom du site": siteName,
-              "Region": asg.zone || '',
-              "PM Date": asg.plannedDate || '',
-              "Types de PM": asg.maintenanceType || '',
-              "FE names": asg.technicianName || '',
-              "PM date execute": asg.closedAt || '',
-              "PM date replanifiée": asg.reprogrammationDate || '',
-              "status": statusText
-            };
-          });
-
-          return new Response(JSON.stringify({ success: true, isSthicLive: true, rows }), { headers: { 'Content-Type': 'application/json' } });
-        } catch (err) {
-          return new Response(JSON.stringify({ success: true, isDemo: true, rows: getDemoRows() }), { headers: { 'Content-Type': 'application/json' } });
-        }
-      }
-
-      const demoRows = getDemoRows();
-
-      if (apiKey === 'Si6JXVXPpNJ1xS7-IfS43OJUfrzlGUqeXY-A-IhFHHCnKwMVgF5xKfAn-dBZTGKM' || retableId === 'tab-demo-01') {
-        const rows = demoRows.map((row: any) => {
-          const flatRow: any = { id: row.id };
-          Object.keys(row.cell_values).forEach((key) => {
-            flatRow[key] = (row.cell_values as any)[key];
-          });
-          return flatRow;
-        });
-        return new Response(JSON.stringify({ success: true, isDemo: true, rows }), { headers: { 'Content-Type': 'application/json' } });
-      }
-
       if (!retableId) {
         return new Response(JSON.stringify({ error: 'retableId is required' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
       }
@@ -254,7 +126,7 @@ export const onRequest = async (context: any) => {
         });
         if (!response.ok) throw new Error(`Retable API error: ${response.status}`);
         const json: any = await response.json();
-        
+
         let rawRows = [];
         if (json && json.data && Array.isArray(json.data.rows)) {
           rawRows = json.data.rows;
@@ -288,35 +160,10 @@ export const onRequest = async (context: any) => {
 
         return new Response(JSON.stringify({ success: true, rows }), { headers: { 'Content-Type': 'application/json' } });
       } catch (error) {
-        const fallbackRows = [
-          {
-            id: "row-01",
-            "ID": "SITE_DK_01",
-            "PM number": "PM-2026-1001",
-            "Nom du site": "Site Dakar Plateau",
-            "Region": "DAKAR",
-            "PM Date": "2026-07-23",
-            "Types de PM": "Trimestrielle",
-            "FE names": "Ibrahima Ndiaye",
-            "PM date execute": "2026-07-23",
-            "PM date replanifiée": "",
-            "status": "Exécuté"
-          },
-          {
-            id: "row-02",
-            "ID": "SITE_TH_02",
-            "PM number": "PM-2026-1002",
-            "Nom du site": "Site Thiès Gare",
-            "Region": "THIES",
-            "PM Date": "2026-07-23",
-            "Types de PM": "Semestrielle",
-            "FE names": "Moustapha Diop",
-            "PM date execute": "",
-            "PM date replanifiée": "",
-            "status": "Planifié"
-          }
-        ];
-        return new Response(JSON.stringify({ success: true, isDemo: true, rows: fallbackRows }), { headers: { 'Content-Type': 'application/json' } });
+        return new Response(JSON.stringify({ error: 'Unable to fetch Retable data' }), {
+          status: 502,
+          headers: { 'Content-Type': 'application/json' }
+        });
       }
     }
 

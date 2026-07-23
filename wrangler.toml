@@ -3,5 +3,8 @@ name = "sthic-pm-tracker"
 compatibility_date = "2024-01-01"
 pages_build_output_dir = "dist"
 
-[vars]
-RETABLE_API_KEY = "Si6JXVXPpNJ1xS7-IfS43OJUfrzlGUqeXY-A-IhFHHCnKwMVgF5xKfAn-dBZTGKM"
+# Keep secrets out of version control.
+# For Cloudflare Pages, define RETABLE_API_KEY as a Pages secret
+# in the dashboard or with:
+#   wrangler pages secret put RETABLE_API_KEY --project-name sthic-pm-tracker
+# For local development, use a non-committed .dev.vars file.

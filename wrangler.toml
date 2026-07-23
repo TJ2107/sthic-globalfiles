@@ -12,5 +12,5 @@ RETABLE_API_KEY = "Si6JXVXPpNJ1xS7-IfS43OJUfrzlGUqeXY-A-IhFHHCnKwMVgF5xKfAn-dBZT
 [[d1_databases]]
 binding = "DB"
 database_name = "sthic_pm_db"
-database_id = "A_REMPLACER_PAR_VOTRE_DATABASE_ID" # Ex: "e292dca3-818f-4cf6-9cf7-xxxxxx"
+database_id = "a0186e6c-0ec3-45e3-bb1e-54dac328e1a0"
 

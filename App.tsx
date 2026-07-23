@@ -412,6 +412,11 @@ const App: React.FC = () => {
                </span>
              )}
           </button>
+          {!isSidebarCollapsed && (
+            <div className="text-center mt-2">
+              <p className="text-[9px] text-slate-500 font-medium">© 2026 Empreintes Tech.</p>
+            </div>
+          )}
         </div>
       </aside>
 

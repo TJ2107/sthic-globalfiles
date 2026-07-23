@@ -125,6 +125,19 @@ async function startServer() {
   const PORT = 3000;
 
   app.use(cors());
+  app.use((req, res, next) => {
+    const start = Date.now();
+    res.on('finish', () => {
+      const duration = Date.now() - start;
+      const url = req.originalUrl || '';
+      // Only log API requests or actual errors to keep console logs focused
+      // and avoid false positive scanner matches on filenames like ErrorBoundary.tsx
+      if (url.startsWith('/api') || res.statusCode >= 400) {
+        console.log(`${req.method} ${url} - ${res.statusCode} (${duration}ms)`);
+      }
+    });
+    next();
+  });
   app.use(express.json({ limit: '500mb' }));
   app.use(express.urlencoded({ limit: '500mb', extended: true }));
 

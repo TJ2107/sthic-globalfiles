@@ -2,7 +2,7 @@
 export const onRequest = async (context: any) => {
   const { request, env } = context;
   const url = new URL(request.url);
-  const pathname = url.pathname;
+  const pathname = url.pathname.replace(/\/$/, '').toLowerCase();
   const method = request.method;
 
   // Set up standard CORS headers for maximum compatibility
@@ -395,7 +395,7 @@ export const onRequest = async (context: any) => {
     }
 
     // D. GET /api/d1/pm (Retrieve custom assignments/overrides from D1)
-    if (pathname === '/api/d1/pm') {
+    if (pathname === '/api/d1/pm' && method === 'GET') {
       if (env.DB) {
         try {
           const { results } = await env.DB.prepare("SELECT * FROM pm_assignments ORDER BY planned_date DESC").all();

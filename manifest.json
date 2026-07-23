@@ -1,0 +1,21 @@
+
+{
+  "short_name": "GlobalFiles",
+  "name": "GLOBAL FILES - Gestion Enterprise",
+  "icons": [
+    {
+      "src": "https://files.oaiusercontent.com/file-K8yVwU8g9R39N3XhM7JmBe?se=2025-02-17T21%3A32%3A18Z&sp=r&sv=2024-08-04&sr=b&rscc=max-age%3D604800%2C%20immutable%2C%20private&rscd=attachment%3B%20filename%3D307775ba-6e3e-436d-9659-191317d7b5b5.webp&sig=G06Xz/K34A83xR5V7XvN3p8NfK8mKshx4y7m6x8I7e4%3D",
+      "sizes": "192x192",
+      "type": "image/webp"
+    },
+    {
+      "src": "https://files.oaiusercontent.com/file-K8yVwU8g9R39N3XhM7JmBe?se=2025-02-17T21%3A32%3A18Z&sp=r&sv=2024-08-04&sr=b&rscc=max-age%3D604800%2C%20immutable%2C%20private&rscd=attachment%3B%20filename%3D307775ba-6e3e-436d-9659-191317d7b5b5.webp&sig=G06Xz/K34A83xR5V7XvN3p8NfK8mKshx4y7m6x8I7e4%3D",
+      "sizes": "512x512",
+      "type": "image/webp"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#4338ca",
+  "background_color": "#ffffff"
+}

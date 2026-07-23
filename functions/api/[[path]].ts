@@ -1,0 +1,444 @@
+/* eslint-disable */
+export const onRequest = async (context: any) => {
+  const { request, env } = context;
+  const url = new URL(request.url);
+  const pathname = url.pathname;
+  const method = request.method;
+
+  // Set up standard CORS headers for maximum compatibility
+  const corsHeaders = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS, PUT, DELETE',
+    'Access-Control-Allow-Headers': 'Content-Type, x-api-key, ApiKey',
+  };
+
+  // Handle preflight requests
+  if (method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  const getResponse = async () => {
+    // 1. GET /api/health
+    if (pathname === '/api/health') {
+      return new Response(JSON.stringify({ status: 'ok', database: 'Firebase' }), {
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Extract apiKey with fallback
+    const apiKey = request.headers.get('x-api-key') || env.RETABLE_API_KEY || 'Si6JXVXPpNJ1xS7-IfS43OJUfrzlGUqeXY-A-IhFHHCnKwMVgF5xKfAn-dBZTGKM';
+
+    // 2. GET /api/retable/workspaces
+    if (pathname === '/api/retable/workspaces') {
+      if (apiKey === 'Si6JXVXPpNJ1xS7-IfS43OJUfrzlGUqeXY-A-IhFHHCnKwMVgF5xKfAn-dBZTGKM') {
+        return new Response(JSON.stringify({
+          isSthicLive: true,
+          data: {
+            workspaces: [
+              { id: 'ws-sthic-live', name: 'STHIC Production' }
+            ]
+          }
+        }), { headers: { 'Content-Type': 'application/json' } });
+      }
+
+      try {
+        const response = await fetch('https://api.retable.io/v1/public/workspaces', {
+          headers: { 'ApiKey': apiKey }
+        });
+        if (!response.ok) {
+          throw new Error(`Retable API error: ${response.status}`);
+        }
+        const data = await response.json();
+        return new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json' } });
+      } catch (error) {
+        return new Response(JSON.stringify({
+          isDemo: true,
+          data: {
+            workspaces: [
+              { id: 'ws-demo-01', name: 'Espace Démo - Suivi PM Retable (Fallback)' }
+            ]
+          }
+        }), { headers: { 'Content-Type': 'application/json' } });
+      }
+    }
+
+    // 3. GET /api/retable/projects
+    if (pathname === '/api/retable/projects') {
+      const workspaceId = url.searchParams.get('workspaceId');
+
+      if (apiKey === 'Si6JXVXPpNJ1xS7-IfS43OJUfrzlGUqeXY-A-IhFHHCnKwMVgF5xKfAn-dBZTGKM' || workspaceId === 'ws-sthic-live') {
+        return new Response(JSON.stringify({
+          isSthicLive: true,
+          data: {
+            projects: [
+              { id: 'proj-sthic-live', name: 'Suivi PM & Maintenances' }
+            ]
+          }
+        }), { headers: { 'Content-Type': 'application/json' } });
+      }
+
+      if (apiKey === 'Si6JXVXPpNJ1xS7-IfS43OJUfrzlGUqeXY-A-IhFHHCnKwMVgF5xKfAn-dBZTGKM' || workspaceId === 'ws-demo-01') {
+        return new Response(JSON.stringify({
+          isDemo: true,
+          data: {
+            projects: [
+              { id: 'proj-demo-01', name: 'Projet Maintenance Télécom 2026' }
+            ]
+          }
+        }), { headers: { 'Content-Type': 'application/json' } });
+      }
+
+      if (!workspaceId) {
+        return new Response(JSON.stringify({ error: 'workspaceId is required' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+      }
+
+      try {
+        const response = await fetch(`https://api.retable.io/v1/public/workspaces/${workspaceId}/projects`, {
+          headers: { 'ApiKey': apiKey }
+        });
+        if (!response.ok) throw new Error(`Retable API error: ${response.status}`);
+        const data = await response.json();
+        return new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json' } });
+      } catch (error) {
+        return new Response(JSON.stringify({
+          isDemo: true,
+          data: {
+            projects: [
+              { id: 'proj-demo-01', name: 'Projet Maintenance Télécom 2026 (Fallback)' }
+            ]
+          }
+        }), { headers: { 'Content-Type': 'application/json' } });
+      }
+    }
+
+    // 4. GET /api/retable/tables
+    if (pathname === '/api/retable/tables') {
+      const projectId = url.searchParams.get('projectId');
+
+      if (apiKey === 'Si6JXVXPpNJ1xS7-IfS43OJUfrzlGUqeXY-A-IhFHHCnKwMVgF5xKfAn-dBZTGKM' || projectId === 'proj-sthic-live') {
+        return new Response(JSON.stringify({
+          isSthicLive: true,
+          data: {
+            tables: [
+              { id: 'tab-sthic-live', title: 'Planification PM (STHIC Live)' }
+            ]
+          }
+        }), { headers: { 'Content-Type': 'application/json' } });
+      }
+
+      if (apiKey === 'Si6JXVXPpNJ1xS7-IfS43OJUfrzlGUqeXY-A-IhFHHCnKwMVgF5xKfAn-dBZTGKM' || projectId === 'proj-demo-01') {
+        return new Response(JSON.stringify({
+          isDemo: true,
+          data: {
+            tables: [
+              { id: 'tab-demo-01', title: 'Suivi PM Sénégal Global' }
+            ]
+          }
+        }), { headers: { 'Content-Type': 'application/json' } });
+      }
+
+      if (!projectId) {
+        return new Response(JSON.stringify({ error: 'projectId is required' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+      }
+
+      try {
+        const response = await fetch(`https://api.retable.io/v1/public/projects/${projectId}/tables`, {
+          headers: { 'ApiKey': apiKey }
+        });
+        if (!response.ok) throw new Error(`Retable API error: ${response.status}`);
+        const data = await response.json();
+        return new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json' } });
+      } catch (error) {
+        return new Response(JSON.stringify({
+          isDemo: true,
+          data: {
+            tables: [
+              { id: 'tab-demo-01', title: 'Suivi PM Sénégal Global (Fallback)' }
+            ]
+          }
+        }), { headers: { 'Content-Type': 'application/json' } });
+      }
+    }
+
+    // 5. GET /api/retable/data
+    if (pathname === '/api/retable/data') {
+      const retableId = url.searchParams.get('retableId');
+
+      if (apiKey === 'Si6JXVXPpNJ1xS7-IfS43OJUfrzlGUqeXY-A-IhFHHCnKwMVgF5xKfAn-dBZTGKM' || retableId === 'tab-sthic-live') {
+        try {
+          const assignmentsRes = await fetch('https://sthic-maintenances-generateurs.pages.dev/api/pm-assignments', {
+            headers: { 'x-api-key': 'Si6JXVXPpNJ1xS7-IfS43OJUfrzlGUqeXY-A-IhFHHCnKwMVgF5xKfAn-dBZTGKM' }
+          });
+          if (!assignmentsRes.ok) {
+            throw new Error(`Failed to fetch assignments: ${assignmentsRes.status}`);
+          }
+          const assignmentsJson: any = await assignmentsRes.json();
+          const assignments = assignmentsJson.assignments || [];
+
+          let sitesMap = new Map();
+          try {
+            const sitesRes = await fetch('https://sthic-maintenances-generateurs.pages.dev/api/sites', {
+              headers: { 'x-api-key': 'Si6JXVXPpNJ1xS7-IfS43OJUfrzlGUqeXY-A-IhFHHCnKwMVgF5xKfAn-dBZTGKM' }
+            });
+            if (sitesRes.ok) {
+              const sitesJson: any = await sitesRes.json();
+              const sitesList = sitesJson.sites || [];
+              sitesList.forEach((site: any) => {
+                if (site.id) {
+                  sitesMap.set(String(site.id), site.nameSite || site.idSite || '');
+                }
+              });
+            }
+          } catch (siteErr) {
+            console.error("Error fetching sites map:", siteErr);
+          }
+
+          const rows = assignments.map((asg: any) => {
+            const siteName = sitesMap.get(String(asg.siteId)) || asg.siteCode || 'Site Inconnu';
+            
+            let statusText = 'Planifié';
+            if (asg.pmState === 'Closed Complete' || asg.closedAt) {
+              statusText = 'Exécuté';
+            } else if (asg.reprogrammationDate) {
+              statusText = 'Replanifié';
+            } else {
+              const pDate = new Date(asg.plannedDate);
+              const today = new Date();
+              today.setHours(0, 0, 0, 0);
+              if (pDate < today) {
+                statusText = 'En retard';
+              }
+            }
+
+            return {
+              id: asg.id,
+              "ID": asg.siteCode || asg.siteId,
+              "PM number": asg.pmNumber,
+              "Nom du site": siteName,
+              "Region": asg.zone || '',
+              "PM Date": asg.plannedDate || '',
+              "Types de PM": asg.maintenanceType || '',
+              "FE names": asg.technicianName || '',
+              "PM date execute": asg.closedAt || '',
+              "PM date replanifiée": asg.reprogrammationDate || '',
+              "status": statusText
+            };
+          });
+
+          return new Response(JSON.stringify({ success: true, isSthicLive: true, rows }), { headers: { 'Content-Type': 'application/json' } });
+        } catch (err) {
+          return new Response(JSON.stringify({ success: true, isDemo: true, rows: getDemoRows() }), { headers: { 'Content-Type': 'application/json' } });
+        }
+      }
+
+      const demoRows = getDemoRows();
+
+      if (apiKey === 'Si6JXVXPpNJ1xS7-IfS43OJUfrzlGUqeXY-A-IhFHHCnKwMVgF5xKfAn-dBZTGKM' || retableId === 'tab-demo-01') {
+        const rows = demoRows.map((row: any) => {
+          const flatRow: any = { id: row.id };
+          Object.keys(row.cell_values).forEach((key) => {
+            flatRow[key] = (row.cell_values as any)[key];
+          });
+          return flatRow;
+        });
+        return new Response(JSON.stringify({ success: true, isDemo: true, rows }), { headers: { 'Content-Type': 'application/json' } });
+      }
+
+      if (!retableId) {
+        return new Response(JSON.stringify({ error: 'retableId is required' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+      }
+
+      try {
+        const response = await fetch(`https://api.retable.io/v1/public/retable/${retableId}/data`, {
+          headers: { 'ApiKey': apiKey }
+        });
+        if (!response.ok) throw new Error(`Retable API error: ${response.status}`);
+        const json: any = await response.json();
+        
+        let rawRows = [];
+        if (json && json.data && Array.isArray(json.data.rows)) {
+          rawRows = json.data.rows;
+        } else if (json && Array.isArray(json.rows)) {
+          rawRows = json.rows;
+        } else if (Array.isArray(json)) {
+          rawRows = json;
+        }
+
+        const rows = rawRows.map((row: any) => {
+          const flatRow: any = { id: row.row_id || row.id };
+          if (Array.isArray(row.columns)) {
+            row.columns.forEach((col: any) => {
+              if (col && col.name) {
+                flatRow[col.name] = col.val;
+              }
+            });
+          } else if (row.cell_values) {
+            Object.keys(row.cell_values).forEach((key) => {
+              flatRow[key] = row.cell_values[key];
+            });
+          } else {
+            Object.keys(row).forEach((k) => {
+              if (k !== 'columns' && k !== 'cell_values') {
+                flatRow[k] = row[k];
+              }
+            });
+          }
+          return flatRow;
+        });
+
+        return new Response(JSON.stringify({ success: true, rows }), { headers: { 'Content-Type': 'application/json' } });
+      } catch (error) {
+        const fallbackRows = [
+          {
+            id: "row-01",
+            "ID": "SITE_DK_01",
+            "PM number": "PM-2026-1001",
+            "Nom du site": "Site Dakar Plateau",
+            "Region": "DAKAR",
+            "PM Date": "2026-07-23",
+            "Types de PM": "Trimestrielle",
+            "FE names": "Ibrahima Ndiaye",
+            "PM date execute": "2026-07-23",
+            "PM date replanifiée": "",
+            "status": "Exécuté"
+          },
+          {
+            id: "row-02",
+            "ID": "SITE_TH_02",
+            "PM number": "PM-2026-1002",
+            "Nom du site": "Site Thiès Gare",
+            "Region": "THIES",
+            "PM Date": "2026-07-23",
+            "Types de PM": "Semestrielle",
+            "FE names": "Moustapha Diop",
+            "PM date execute": "",
+            "PM date replanifiée": "",
+            "status": "Planifié"
+          }
+        ];
+        return new Response(JSON.stringify({ success: true, isDemo: true, rows: fallbackRows }), { headers: { 'Content-Type': 'application/json' } });
+      }
+    }
+
+    return new Response(JSON.stringify({ error: 'Not Found' }), { status: 404, headers: { 'Content-Type': 'application/json' } });
+  };
+
+  const response = await getResponse();
+  
+  // Attach CORS headers to response
+  Object.entries(corsHeaders).forEach(([key, val]) => {
+    response.headers.set(key, val);
+  });
+
+  return response;
+};
+
+function getDemoRows() {
+  return [
+    {
+      id: "row-01",
+      cell_values: {
+        "ID": "SITE_DK_01",
+        "PM number": "PM-2026-1001",
+        "Nom du site": "Site Dakar Plateau",
+        "Region": "DAKAR",
+        "PM Date": "2026-07-23",
+        "Types de PM": "Trimestrielle",
+        "FE names": "Ibrahima Ndiaye",
+        "PM date execute": "2026-07-23",
+        "PM date replanifiée": "",
+        "status": "Exécuté"
+      }
+    },
+    {
+      id: "row-02",
+      cell_values: {
+        "ID": "SITE_TH_02",
+        "PM number": "PM-2026-1002",
+        "Nom du site": "Site Thiès Gare",
+        "Region": "THIES",
+        "PM Date": "2026-07-23",
+        "Types de PM": "Semestrielle",
+        "FE names": "Moustapha Diop",
+        "PM date execute": "",
+        "PM date replanifiée": "",
+        "status": "Planifié"
+      }
+    },
+    {
+      id: "row-03",
+      cell_values: {
+        "ID": "SITE_SL_03",
+        "PM number": "PM-2026-1003",
+        "Nom du site": "Site Saint-Louis Nord",
+        "Region": "SAINT-LOUIS",
+        "PM Date": "2026-07-23",
+        "Types de PM": "Annuelle",
+        "FE names": "Amadou Sow",
+        "PM date execute": "",
+        "PM date replanifiée": "2026-07-25",
+        "status": "Replanifié"
+      }
+    },
+    {
+      id: "row-04",
+      cell_values: {
+        "ID": "SITE_ZG_04",
+        "PM number": "PM-2026-1004",
+        "Nom du site": "Site Ziguinchor Centre",
+        "Region": "ZIGUINCHOR",
+        "PM Date": "2026-07-23",
+        "Types de PM": "Mensuelle",
+        "FE names": "Fatou Fall",
+        "PM date execute": "",
+        "PM date replanifiée": "",
+        "status": "En retard"
+      }
+    },
+    {
+      id: "row-05",
+      cell_values: {
+        "ID": "SITE_KL_05",
+        "PM number": "PM-2026-1005",
+        "Nom du site": "Site Kaolack Marché",
+        "Region": "KAOLACK",
+        "PM Date": "2026-07-23",
+        "Types de PM": "Trimestrielle",
+        "FE names": "Ousmane Cissé",
+        "PM date execute": "2026-07-23",
+        "PM date replanifiée": "",
+        "status": "Exécuté"
+      }
+    },
+    {
+      id: "row-06",
+      cell_values: {
+        "ID": "SITE_DK_06",
+        "PM number": "PM-2026-1006",
+        "Nom du site": "Site Dakar Almadies",
+        "Region": "DAKAR",
+        "PM Date": "2026-07-24",
+        "Types de PM": "Trimestrielle",
+        "FE names": "Ibrahima Ndiaye",
+        "PM date execute": "",
+        "PM date replanifiée": "",
+        "status": "Planifié"
+      }
+    },
+    {
+      id: "row-07",
+      cell_values: {
+        "ID": "SITE_TH_07",
+        "PM number": "PM-2026-1007",
+        "Nom du site": "Site Thiès Route",
+        "Region": "THIES",
+        "PM Date": "2026-07-22",
+        "Types de PM": "Mensuelle",
+        "FE names": "Moustapha Diop",
+        "PM date execute": "2026-07-22",
+        "PM date replanifiée": "",
+        "status": "Exécuté"
+      }
+    }
+  ];
+}

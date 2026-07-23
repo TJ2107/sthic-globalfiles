@@ -1,0 +1,7 @@
+#:schema node_modules/wrangler/config-schema.json
+name = "sthic-pm-tracker"
+compatibility_date = "2024-01-01"
+pages_build_output_dir = "dist"
+
+[vars]
+RETABLE_API_KEY = "Si6JXVXPpNJ1xS7-IfS43OJUfrzlGUqeXY-A-IhFHHCnKwMVgF5xKfAn-dBZTGKM"

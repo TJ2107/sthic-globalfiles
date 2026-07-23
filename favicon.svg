@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <linearGradient id="gearGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4f46e5" />
+      <stop offset="50%" stop-color="#6366f1" />
+      <stop offset="100%" stop-color="#818cf8" />
+    </linearGradient>
+    <linearGradient id="innerGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1e1b4b" />
+      <stop offset="100%" stop-color="#312e81" />
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="8" stdDeviation="15" flood-color="#4f46e5" flood-opacity="0.4" />
+    </filter>
+  </defs>
+  <!-- Background or Base shadow container -->
+  <g filter="url(#shadow)">
+    <!-- Main outer gear wheel -->
+    <path fill="url(#gearGrad)" d="M487.4 315.7l-42.6-24.6c1.2-8.5 1.9-17.1 1.9-25.8s-.7-17.3-1.9-25.8l42.6-24.6c9.7-5.6 13.9-17.4 10.2-28.1-12.1-34.8-31.5-66.2-56.7-92.4-7.8-8.1-20.1-9.9-29.8-4.3l-42.6 24.6c-13.8-10.9-29.3-19.8-46.1-26.2V63.9c0-11.2-8.5-20.7-19.6-21.7C282.4 40.2 269.3 39 256 39s-26.4 1.2-39.2 3.2c-11.1 1-19.6 10.5-19.6 21.7v49.9c-16.8 6.4-32.3 15.3-46.1 26.2l-42.6-24.6c-9.7-5.6-22-3.8-29.8 4.3-25.2 26.2-44.6 57.6-56.7 92.4-3.7 10.7.5 22.5 10.2 28.1l42.6 24.6c-1.2 8.5-1.9 17.1-1.9 25.8s.7 17.3 1.9 25.8l-42.6 24.6c-9.7 5.6-13.9 17.4-10.2 28.1 12.1 34.8 31.5 66.2 56.7 92.4 7.8 8.1 20.1 9.9 29.8 4.3l42.6-24.6c13.8 10.9 29.3 19.8 46.1 26.2v49.9c0 11.2 8.5 20.7 19.6 21.7 12.8 2 25.9 3.2 39.2 3.2s26.4-1.2 39.2-3.2c11.1-1 19.6-10.5 19.6-21.7v-49.9c16.8-6.4 32.3-15.3 46.1-26.2l42.6 24.6c9.7 5.6 22 3.8 29.8-4.3 25.2-26.2 44.6-57.6 56.7-92.4 3.7-10.7-.5-22.5-10.2-28.1zM256 344c-48.6 0-88-39.4-88-88s39.4-88 88-88 88 39.4 88 88-39.4 88-88 88z" />
+    
+    <!-- Outer accent teeth ring -->
+    <circle cx="256" cy="256" r="140" fill="none" stroke="#ffffff" stroke-width="6" opacity="0.15" />
+    
+    <!-- Central hole or glowing core of the gear -->
+    <circle cx="256" cy="256" r="64" fill="url(#innerGrad)" />
+    
+    <!-- Inner glowing dot / core accent -->
+    <circle cx="256" cy="256" r="24" fill="#ffffff" opacity="0.9" />
+  </g>
+</svg>

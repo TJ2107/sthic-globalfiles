@@ -1,0 +1,67 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() { return request.auth != null; }
+    function isSuperAdmin() { 
+      return isSignedIn() && request.auth.token.email == 'cyber.kan587@gmail.com'; 
+    }
+    
+    function hasRole(reqRole) {
+      return isSignedIn() && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == reqRole;
+    }
+
+    function isAdmin() { return isSuperAdmin() || hasRole('Admin'); }
+    function isManager() { return isAdmin() || hasRole('Manager'); }
+    function isUser() { return isManager() || hasRole('User'); }
+    function isAuthOrAdmin() { return isSignedIn(); } 
+
+    function isValidId(id) { return id is string && id.size() <= 128; }
+
+    match /users/{userId} {
+      allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow create: if (isAdmin() || isSuperAdmin()) && isValidId(userId);
+      allow update: if isAdmin() && isValidId(userId);
+      allow delete: if isSuperAdmin() && isValidId(userId);
+    }
+
+    function isValidSwoData(data) {
+      return data.project_id is string &&
+             data.project_id.size() <= 64 &&
+             data.createdAt is number &&
+             data.updatedAt is number;
+    }
+
+    match /projects/{projectId}/swo_data/{rowId} {
+      allow read: if isSignedIn();
+      allow create: if isManager() && isValidSwoData(request.resource.data);
+      allow update: if isManager() && 
+                    isValidSwoData(request.resource.data) &&
+                    request.resource.data.project_id == resource.data.project_id;
+      allow delete: if isManager();
+    }
+    
+    function isValidComment(data) {
+      return data.site_id is string && 
+             data.category is string && 
+             data.comment is string &&
+             data.updated_at is number;
+    }
+
+    match /projects/{projectId}/manual_comments/{commentId} {
+      allow read: if isSignedIn();
+      allow create, update: if isManager() && isValidComment(request.resource.data);
+      allow delete: if isSuperAdmin();
+    }
+
+    match /config/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+  }
+}

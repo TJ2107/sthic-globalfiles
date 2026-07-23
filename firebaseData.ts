@@ -99,6 +99,40 @@ export const saveToFirebase = async (data: GlobalFileRow[], append: boolean = fa
     finalData = uniqueRows;
   }
   localStorage.setItem('globalFiles_data', JSON.stringify(finalData));
+
+  // Sync to Cloudflare D1
+  try {
+    // Save to the global_files table which stores the entire JSON structure
+    await fetch('/api/d1/global-files', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(finalData)
+    });
+
+    // Also update the daily_raw_data table for backwards compatibility
+    const payload = finalData.map(row => ({
+      id: 'raw-' + Math.random().toString(36).substring(2, 9),
+      site_code: row["N° SWO"] || row["ID"] || '',
+      pm_number: row["PM number"] || '',
+      site_name: row["Nom du site"] || '',
+      region: row["Region"] || '',
+      planned_date: row["PM Date"] || '',
+      maintenance_type: row["Types de PM"] || '',
+      technician_name: row["FE names"] || '',
+      executed_date: row["PM date execute"] || '',
+      reprogrammed_date: row["PM date replanifiée"] || '',
+      status: row["status"] || 'Planifié',
+      comments: row["comments"] || ''
+    }));
+
+    await fetch('/api/d1/sync-daily', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+  } catch (e) {
+    console.error('Failed to sync data to D1 API', e);
+  }
 };
 
 export const saveCommentToFirebase = async (siteId: string, category: string, comment: string) => {
@@ -126,6 +160,20 @@ export const fetchCommentsFromFirebase = async (): Promise<{site_id: string, cat
 };
 
 export const fetchFromFirebase = async (): Promise<GlobalFileRow[]> => {
+  try {
+    const res = await fetch('/api/d1/global-files');
+    if (res.ok) {
+      const json = await res.json();
+      if (json.success && Array.isArray(json.rows) && json.rows.length > 0) {
+        // Also sync local storage just in case
+        localStorage.setItem('globalFiles_data', JSON.stringify(json.rows));
+        return json.rows;
+      }
+    }
+  } catch (e) {
+    console.error('Failed to fetch from D1 API, falling back to local storage', e);
+  }
+
   const saved = localStorage.getItem('globalFiles_data');
   if (saved) {
     try {

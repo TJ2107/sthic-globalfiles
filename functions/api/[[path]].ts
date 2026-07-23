@@ -459,9 +459,10 @@ export const onRequest = async (context: any) => {
     if (pathname === '/api/d1/sync-daily' && method === 'POST') {
       try {
         const body = await request.json();
-        const { id, site_code, pm_number, site_name, region, planned_date, maintenance_type, technician_name, executed_date, reprogrammed_date, status, comments } = body;
+        const items = Array.isArray(body) ? body : [body];
+        
         if (env.DB) {
-          await env.DB.prepare(`
+          const stmt = env.DB.prepare(`
             INSERT INTO daily_raw_data (id, site_code, pm_number, site_name, region, planned_date, maintenance_type, technician_name, executed_date, reprogrammed_date, status, comments, imported_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
             ON CONFLICT(pm_number) DO UPDATE SET
@@ -476,9 +477,14 @@ export const onRequest = async (context: any) => {
               status=excluded.status,
               comments=excluded.comments,
               imported_at=CURRENT_TIMESTAMP
-          `).bind(
-            id, site_code, pm_number, site_name, region, planned_date, maintenance_type, technician_name, executed_date || null, reprogrammed_date || null, status, comments || null
-          ).run();
+          `);
+          
+          const batch = items.map((item: any) => {
+            const { id, site_code, pm_number, site_name, region, planned_date, maintenance_type, technician_name, executed_date, reprogrammed_date, status, comments } = item;
+            return stmt.bind(id, site_code, pm_number, site_name, region, planned_date, maintenance_type, technician_name, executed_date || null, reprogrammed_date || null, status, comments || null);
+          });
+          
+          await env.DB.batch(batch);
           return new Response(JSON.stringify({ success: true, message: "Raw data daily synced in D1." }), { headers: { 'Content-Type': 'application/json' } });
         } else {
           return new Response(JSON.stringify({ error: "Base D1 non connectée." }), { status: 400, headers: { 'Content-Type': 'application/json' } });
@@ -513,6 +519,57 @@ export const onRequest = async (context: any) => {
         }
       } else {
         return new Response(JSON.stringify({ success: true, rows: [] }), { headers: { 'Content-Type': 'application/json' } });
+      }
+    }
+
+    // H. GET /api/d1/global-files
+    if (pathname === '/api/d1/global-files' && method === 'GET') {
+      if (env.DB) {
+        try {
+          const { results } = await env.DB.prepare("SELECT raw_json FROM global_files ORDER BY updated_at DESC").all();
+          const rows = results.map((r: any) => {
+            try { return JSON.parse(r.raw_json); } catch { return null; }
+          }).filter((r: any) => r !== null);
+          return new Response(JSON.stringify({ success: true, rows }), { headers: { 'Content-Type': 'application/json' } });
+        } catch (e: any) {
+          return new Response(JSON.stringify({ error: e.message }), { status: 500, headers: { 'Content-Type': 'application/json' } });
+        }
+      } else {
+        return new Response(JSON.stringify({ success: true, rows: [] }), { headers: { 'Content-Type': 'application/json' } });
+      }
+    }
+
+    // I. POST /api/d1/global-files (Replace all data)
+    if (pathname === '/api/d1/global-files' && method === 'POST') {
+      try {
+        const body = await request.json();
+        const items = Array.isArray(body) ? body : [body];
+        
+        if (env.DB) {
+          // Instead of deleting everything, we can do batch insert.
+          // For simplicity, delete all existing and insert new batch (since it's a full replace usually).
+          await env.DB.prepare("DELETE FROM global_files").run();
+          
+          const stmt = env.DB.prepare("INSERT INTO global_files (id, swo_number, pm_number, raw_json) VALUES (?, ?, ?, ?)");
+          const batch = items.map((item: any) => {
+            const id = 'row-' + Math.random().toString(36).substring(2, 9);
+            const swo = item["N° SWO"] || '';
+            const pm = item["PM number"] || '';
+            const raw = JSON.stringify(item);
+            return stmt.bind(id, swo, pm, raw);
+          });
+          
+          // Execute in batches of 100 to avoid limits
+          for (let i = 0; i < batch.length; i += 100) {
+            await env.DB.batch(batch.slice(i, i + 100));
+          }
+          
+          return new Response(JSON.stringify({ success: true }), { headers: { 'Content-Type': 'application/json' } });
+        } else {
+          return new Response(JSON.stringify({ error: "Base D1 non connectée." }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+        }
+      } catch (e: any) {
+        return new Response(JSON.stringify({ error: e.message }), { status: 500, headers: { 'Content-Type': 'application/json' } });
       }
     }
 

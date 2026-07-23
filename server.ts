@@ -294,45 +294,49 @@ async function startServer() {
   // F. POST /api/d1/sync-daily (Create/Update daily raw data)
   app.post('/api/d1/sync-daily', (req, res) => {
     try {
-      const { id, site_code, pm_number, site_name, region, planned_date, maintenance_type, technician_name, executed_date, reprogrammed_date, status, comments } = req.body;
       const db = readMockDb();
-      
       if (!db.daily_raw_data) {
         db.daily_raw_data = [];
       }
-      
-      const existingIndex = db.daily_raw_data.findIndex((p: any) => p.pm_number === pm_number);
-      if (existingIndex > -1) {
-        db.daily_raw_data[existingIndex] = {
-          ...db.daily_raw_data[existingIndex],
-          site_code: site_code || db.daily_raw_data[existingIndex].site_code,
-          site_name: site_name || db.daily_raw_data[existingIndex].site_name,
-          region: region || db.daily_raw_data[existingIndex].region,
-          planned_date: planned_date || db.daily_raw_data[existingIndex].planned_date,
-          maintenance_type: maintenance_type || db.daily_raw_data[existingIndex].maintenance_type,
-          technician_name: technician_name || db.daily_raw_data[existingIndex].technician_name,
-          executed_date: executed_date !== undefined ? executed_date : db.daily_raw_data[existingIndex].executed_date,
-          reprogrammed_date: reprogrammed_date !== undefined ? reprogrammed_date : db.daily_raw_data[existingIndex].reprogrammed_date,
-          status: status || db.daily_raw_data[existingIndex].status,
-          comments: comments !== undefined ? comments : db.daily_raw_data[existingIndex].comments,
-          imported_at: new Date().toISOString()
-        };
-      } else {
-        db.daily_raw_data.push({
-          id: id || 'raw-' + Math.random().toString(36).substring(2, 9),
-          site_code,
-          pm_number,
-          site_name,
-          region,
-          planned_date,
-          maintenance_type,
-          technician_name,
-          executed_date: executed_date || '',
-          reprogrammed_date: reprogrammed_date || '',
-          status: status || 'Planifié',
-          comments: comments || '',
-          imported_at: new Date().toISOString()
-        });
+
+      const items = Array.isArray(req.body) ? req.body : [req.body];
+
+      for (const item of items) {
+        const { id, site_code, pm_number, site_name, region, planned_date, maintenance_type, technician_name, executed_date, reprogrammed_date, status, comments } = item;
+        
+        const existingIndex = db.daily_raw_data.findIndex((p: any) => p.pm_number === pm_number);
+        if (existingIndex > -1) {
+          db.daily_raw_data[existingIndex] = {
+            ...db.daily_raw_data[existingIndex],
+            site_code: site_code || db.daily_raw_data[existingIndex].site_code,
+            site_name: site_name || db.daily_raw_data[existingIndex].site_name,
+            region: region || db.daily_raw_data[existingIndex].region,
+            planned_date: planned_date || db.daily_raw_data[existingIndex].planned_date,
+            maintenance_type: maintenance_type || db.daily_raw_data[existingIndex].maintenance_type,
+            technician_name: technician_name || db.daily_raw_data[existingIndex].technician_name,
+            executed_date: executed_date !== undefined ? executed_date : db.daily_raw_data[existingIndex].executed_date,
+            reprogrammed_date: reprogrammed_date !== undefined ? reprogrammed_date : db.daily_raw_data[existingIndex].reprogrammed_date,
+            status: status || db.daily_raw_data[existingIndex].status,
+            comments: comments !== undefined ? comments : db.daily_raw_data[existingIndex].comments,
+            imported_at: new Date().toISOString()
+          };
+        } else {
+          db.daily_raw_data.push({
+            id: id || 'raw-' + Math.random().toString(36).substring(2, 9),
+            site_code,
+            pm_number,
+            site_name,
+            region,
+            planned_date,
+            maintenance_type,
+            technician_name,
+            executed_date: executed_date || '',
+            reprogrammed_date: reprogrammed_date || '',
+            status: status || 'Planifié',
+            comments: comments || '',
+            imported_at: new Date().toISOString()
+          });
+        }
       }
       
       writeMockDb(db);
@@ -362,6 +366,41 @@ async function startServer() {
         "comments": row.comments || ''
       }));
       res.json({ success: true, rows: mappedRows });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // H. GET /api/d1/global-files
+  app.get('/api/d1/global-files', (req, res) => {
+    try {
+      const db = readMockDb();
+      const results = db.global_files || [];
+      const rows = results.map((r: any) => {
+        try { return JSON.parse(r.raw_json); } catch { return null; }
+      }).filter((r: any) => r !== null);
+      res.json({ success: true, rows });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // I. POST /api/d1/global-files
+  app.post('/api/d1/global-files', (req, res) => {
+    try {
+      const items = Array.isArray(req.body) ? req.body : [req.body];
+      const db = readMockDb();
+      
+      db.global_files = items.map((item: any) => ({
+        id: 'row-' + Math.random().toString(36).substring(2, 9),
+        swo_number: item["N° SWO"] || '',
+        pm_number: item["PM number"] || '',
+        raw_json: JSON.stringify(item),
+        updated_at: new Date().toISOString()
+      }));
+      
+      writeMockDb(db);
+      res.json({ success: true });
     } catch (e: any) {
       res.status(500).json({ error: e.message });
     }

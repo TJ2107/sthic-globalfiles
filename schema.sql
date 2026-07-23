@@ -44,6 +44,15 @@ CREATE TABLE IF NOT EXISTS daily_raw_data (
   imported_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
+-- 4. Table for storing the complete full raw JSON data for the whole app
+CREATE TABLE IF NOT EXISTS global_files (
+  id TEXT PRIMARY KEY,
+  swo_number TEXT,
+  pm_number TEXT,
+  raw_json TEXT NOT NULL,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Seed initial Admin User
 INSERT OR IGNORE INTO users (uid, email, display_name, role, password)
 VALUES (
